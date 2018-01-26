@@ -1,0 +1,7 @@
+(ns hello-fig.testmacro
+  (:require  
+   [hello-fig.pages.user-list.display :as page-user-list]
+   [hello-fig.pages.user-display.display :as page-user-display]
+   [fsmviz.core :as fsmviz]))
+
+(defmacro hello [] 'hello )

@@ -1,0 +1,12 @@
+(ns hello-fig.pages.user-list.state
+  (:require
+             [fsmviz.core :as fsmviz]
+             [hello-fig.modal :as m]
+             [hello-fig.components.dropdown :as dd ]))
+
+(defn print-state  [ ]
+ (fsmviz.core/generate-image {:start {:t1 :foo
+                                     :t2 :bar}
+                             :foo {:t3 :baz}
+                             :bar {:t4 :baz}} "example-map") )
+

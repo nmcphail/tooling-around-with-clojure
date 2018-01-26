@@ -1,0 +1,223 @@
+(ns hello-fig.core
+  (:require  [quiescent.core :as q]
+             [quiescent.dom :as d]
+             [quiescent.dom.uncontrolled :as du]
+             [goog.dom.classlist]
+             [hello-fig.modal :as m]))
+
+(enable-console-print!)
+
+
+(def rows (atom [{:row-properties {:selected false :modified false :inline-edit false} :data {:id 100 :firstname "Neil" :lastname "McPhail"}}
+                 {:row-properties {:selected true  :modified false :inline-edit false} :data {:id 200 :firstname "Bruce" :lastname "Mcphail"}}
+                 {:row-properties {:selected false :modified false :inline-edit false} :data {:id 300 :firstname "Anne" :lastname "McPhail"}}]))
+
+(defn populate-rows [num-rows]
+
+  (doseq [ix  (range num-rows)]
+    (let [x {:row-properties
+             {:selected false :modified false :inline-edit false }
+             :data {:id ix :firstname (str "Firstname " ix ) :lastname (str "Lastname " ix )  }}]
+
+;;      (println x)
+      (swap! rows conj x ))))
+
+(populate-rows 20)
+
+
+(def grid-state (atom {:inline-edit true }))
+
+
+
+(println "Hello again with quiesdddcent")
+
+(defn on-click
+  [e]
+  (.preventDefault e)
+  (println "clicked "))
+
+
+(def field-function-map {:field-1 :lastname  :field-2 :firstname } )
+(def fields [:lastname  :firstname]  )
+
+(defn set-inline-edit-for-each-row [ inline-edit]
+  (loop
+       [ix 0
+       [row & rest ] @rows]
+    
+    (do
+      (swap! rows assoc-in [ix :row-properties :inline-edit ] inline-edit )
+      (if (not (empty? rest )) (recur (inc ix) rest  )))))
+
+(defn find-ix-matching-id [id-looking-for rows]
+  (loop
+      [ix 0
+       [row & rest ] rows]
+    (let [{ {id :id} :data }  row ]
+      (do
+
+        (if-not (= id id-looking-for ) 
+          (if (not (empty? rest ))
+            (do
+              ;;(println ix )
+              (recur (inc ix) rest  ))
+            )
+            ix)))))
+
+
+
+(defn edit-field
+  [fieldnum row-index val]
+  (let [field (fields fieldnum )]
+        (swap! rows assoc-in [row-index :data field] val)))
+
+
+(defn render-field-for-edit
+  [field-num field-value row-index  ]
+    (du/input { :value (str field-value) :onChange
+                            (fn [evt] (let [new-val (.-value (.-target evt)) ]  (edit-field field-num row-index new-val  )))}))
+(defn render-field-for-display
+  [field-num field-value id  ]
+    (d/div { :onClick on-click } (str field-value))
+    )
+
+
+(q/defcomponent Row
+  :keyfn (fn [value] (str (get-in value [:data :id ])) )
+  [row row-index grid-state]
+  (let [ {row-props :row-properties
+          data :data } row
+        {id :id
+         field0 (fields 0)
+         field1 (fields 1) } data
+        field-render-function (if (:inline-edit row-props)   render-field-for-edit render-field-for-display) ]
+ 
+     (d/tr  { :id (str id ) }
+     (d/td {}  (d/input {:type "checkbox" :checked (:selected row-props) :onChange (fn [evt] (println "hello" ))  }))
+     (d/td {} (field-render-function 0 field0 row-index)  )
+     (d/td {} (field-render-function 1 field1 row-index) )
+     (d/td {} (d/a { :href "#"  :onClick on-click  }  "edit") )
+     (d/td {} (d/div {} (str row-index ))))))
+
+
+
+
+;; (q/defcomponent RowList
+;;    [rows]
+;;    (d/table {:className "rows"}
+;;             (d/tbody {}
+;;                      (loop [i 0
+;;                             [row & rest] rows
+;;                                acc ()]
+;;                        ;;(Row row)
+;;                        (if (not (empty? rest))
+;;                          (recur (inc i) rest (cons (Row row) acc))
+;;                          (acc ) )))))
+
+
+(declare render-grid)
+
+(defn toggle-inline-edit
+  []
+  (let [{inline-edit :inline-edit} @grid-state
+        new-inline-edit (not inline-edit)] 
+    (swap! grid-state assoc-in [:inline-edit ] new-inline-edit  )
+    (set-inline-edit-for-each-row new-inline-edit )
+    (render-grid)
+    ))
+
+
+
+(defn show-drop-down []
+
+   (.getElementById js/document "d1")    
+  )
+
+(def dropdown1 {   :name "Dropdown 1"
+                   :menuitems [{:display "DD1 Link1"
+                                :function (fn [] (println "Link1 pressed") )} 
+                               {:display "DD1 Link2"
+                                :function (fn [] (m/render-modal) )}]})
+(def dropdown2 {   :name "Dropdown 2"
+                   :menuitems [{:display "DD2 Link1"
+                                :function (fn [evt & args] (println (str evt)) )} 
+                               {:display "DD2 Link2"
+                                :function (fn [evt & args] (println (str args )) )}]})
+
+
+(defn get-dropdown-node [id]
+   (.getElementById js/document id))
+
+(defn hide-dropdown [ id ]
+  (let [dom-node (get-dropdown-node id) ]
+     (goog.dom.classlist/remove  dom-node "show")))
+
+(defn toggle-dropdown [ id ]
+  (let [dom-node (get-dropdown-node id) ]
+     (if (goog.dom.classlist/contains dom-node "show" )
+         (goog.dom.classlist/remove  dom-node "show")
+         (goog.dom.classlist/add     dom-node "show"))))
+
+
+(q/defcomponent DropDown
+  [dropdown-data]
+  (let [uuid (random-uuid)
+        {name :name } dropdown-data
+        {menu-items :menuitems } dropdown-data
+        ]
+    (d/div {:className "dropdown"}
+           (d/button {:className "dropbtn"
+                      :onClick (fn [evt] (toggle-dropdown uuid)    )} name    )
+
+           
+           (d/div {:id uuid :className "dropdown-content"}
+                  (map (fn [d]  (d/a {:href "#"  :onClick
+
+                                      (comp (:function d) (partial toggle-dropdown uuid))
+                                      ;;(:function d)
+
+                                      }
+
+                                     
+                                     (:display d))) menu-items)))))
+
+
+
+(q/defcomponent RowList
+   [rows grid-state]
+  (d/table {:className "rows"}
+           (d/thead {}
+                    (d/tr {}   
+                          (d/th { :colSpan "9995"}
+                                ""
+                                (d/button { :onClick (fn [evt]
+                                                       (toggle-inline-edit)
+                                                       )} (if (:inline-edit grid-state)  "Display" "Edit"))
+                                (d/button { :onClick (fn [evt] (render-grid))} "Refresh")
+                                (DropDown dropdown1 )                                
+                                ;;(DropDown dropdown2 )                                
+                                ))
+                    )
+            (d/tbody {}
+                (map-indexed (fn [ix row grid-state]  (Row row ix grid-state ) ) rows))))
+
+(defn render-grid []
+  (println "re-rendering")
+  (q/render (RowList @rows @grid-state)
+            (.getElementById js/document "app")))
+
+
+
+(render-grid)
+;;(m/render-modal)
+
+;; define your app data so that it doesn't get over-written on reload
+
+(defonce app-state (atom {:text "Hello world!"}))
+
+
+(defn on-js-reload []
+  ;; optionally touch your app-state to force rerendering depending on
+  ;; your application
+  ;; (swap! app-state update-in [:__figwheel_counter] inc)
+)

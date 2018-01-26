@@ -1,0 +1,17 @@
+ (ns http-server-test.core
+    (:require  
+     [org.httpkit.server :as serv ]
+      ))
+
+
+(defn app [req]
+  {:status  200
+   :headers {"Content-Type" "text/html"}
+   :body    "hello HTTP!"})
+
+(serv/run-server app {:port 8080})
+
+(defn -main
+  "I don't do a whole lot ... yet."
+  [& args]
+  (println "Hello, World!"))
